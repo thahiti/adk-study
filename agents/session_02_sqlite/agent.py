@@ -1,4 +1,4 @@
-"""session_02_sqlite: 도구가 보는 Session 의 구조."""
+"""session_02_sqlite: 코드는 같고 세션 서비스만 SQLite 로 바꾼다."""
 
 from google.adk.agents import LlmAgent
 from google.adk.tools import ToolContext
