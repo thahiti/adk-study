@@ -1,4 +1,4 @@
-"""streaming_02_compare: SSE 모드에서 partial 이벤트를 조각으로 받는다."""
+"""streaming_02_compare: NONE 과 SSE 를 같은 메시지로 비교한다."""
 
 from adk_study.testing import FakeStreamLlm
 from agents.streaming_02_compare.agent import root_agent
@@ -80,3 +80,17 @@ async def test_compare_reports_same_stored_count(capsys):
     out = capsys.readouterr().out
     assert "none: events=1 stored=2" in out
     assert "sse: events=4 stored=2" in out
+
+
+async def test_compare_calls_model_once_per_mode():
+    # FakeStreamLlm 은 호출마다 replies 를 하나씩 소비하므로 모드마다
+    # 한 번씩 부르면 답 두 개가 딱 맞게 쓰인다.
+    model = FakeStreamLlm(
+        replies=[["안녕", "하세", "요"], ["안녕", "하세", "요"]]
+    )
+    root_agent.model = model
+
+    await compare(root_agent, "인사해 줘")
+
+    # SSE 가 조각을 여러 개 내도 모델 호출은 NONE 과 같이 한 번이다.
+    assert len(model.requests) == 2

@@ -1,4 +1,8 @@
-"""streaming_02_compare: 도구 호출 한 번이 이벤트 셋을 만든다."""
+"""streaming_02_compare: streaming_01_sse 와 같은 에이전트다.
+
+이 단계의 학습 포인트는 main.py 의 compare 에 있고 에이전트는 이름만
+다르다. 기본 메시지는 도구를 부르지 않아 텍스트 이벤트만 비교한다.
+"""
 
 from google.adk.agents import LlmAgent
 

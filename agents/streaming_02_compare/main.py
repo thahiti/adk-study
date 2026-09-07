@@ -2,7 +2,9 @@
 
 루프에 나오는 이벤트 수는 모드에 따라 다르지만 세션에 저장되는
 이벤트 수는 같다. 스트리밍은 전달 방식의 차이일 뿐 대화 기록을 바꾸지
-않는다.
+않는다. 모델 호출도 두 모드 모두 한 번이다. LlmFlow 는
+generate_content_async 를 한 번 부르고 stream 인자만 모드에 따라
+바꾼다.
 
 실행: uv run python -m agents.streaming_02_compare.main [메시지]
 """
@@ -55,6 +57,11 @@ async def run(
 
     streaming 이 True 면 SSE 모드라 partial 이벤트가 조각으로 오고,
     False 면 NONE 모드라 최종 이벤트만 온다.
+
+    반환값은 루프에 나온 이벤트라 세션에 무엇이 저장됐는지는 알 수
+    없다. 저장된 이벤트까지 보려는 호출자는 session_service 를 넘겨
+    같은 서비스를 나중에 조회한다. 안 넘기면 이전 단계처럼 안에서
+    만들어 쓴다.
     """
     session_service = session_service or InMemorySessionService()
     runner = Runner(
@@ -88,13 +95,20 @@ async def compare(agent: BaseAgent, text: str) -> dict[str, int]:
     """같은 메시지를 NONE 과 SSE 로 돌려 이벤트 수를 비교한다.
 
     루프에 나온 이벤트 수는 다르지만 세션에 저장된 이벤트 수는 같다.
+    저장 수는 출력만 하고 반환값에는 루프 이벤트 수만 담는다.
     """
     counts: dict[str, int] = {}
     for name, streaming in (("none", False), ("sse", True)):
+        # 모드마다 서비스를 새로 만들어 세션이 하나만 있게 한다.
+        # 서비스를 공유하면 두 번째 모드에서 세션이 둘이 되어
+        # list_sessions 결과에서 어느 것이 이번 것인지 골라야 한다.
         session_service = InMemorySessionService()
         events = await run(
             agent, text, streaming=streaming, session_service=session_service
         )
+        # run 은 세션 id 를 돌려주지 않으므로 list_sessions 로 찾는다.
+        # InMemorySessionService.list_sessions 는 events 를 비운 복사본을
+        # 주므로 이벤트를 세려면 get_session 을 한 번 더 불러야 한다.
         listed = await session_service.list_sessions(
             app_name=APP_NAME, user_id=USER_ID
         )
@@ -103,6 +117,7 @@ async def compare(agent: BaseAgent, text: str) -> dict[str, int]:
             user_id=USER_ID,
             session_id=listed.sessions[0].id,
         )
+        # get_session 은 없는 id 면 None 을 주는 시그니처라 분기가 필요하다.
         stored = len(session.events) if session else 0
         print(f"{name}: events={len(events)} stored={stored}")
         counts[name] = len(events)
