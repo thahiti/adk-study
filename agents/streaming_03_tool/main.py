@@ -30,6 +30,7 @@ def describe(event: Event) -> str:
     도구 턴의 이벤트 셋은 parts 의 종류로 구분한다. function_call 과
     function_response 를 먼저 살피고, 둘 다 없으면 텍스트로 본다.
     이 단계는 도구를 한 번에 하나만 부르므로 첫 번째 것만 본다.
+    텍스트는 partial 여부로 다시 나눠 종류가 넷이 된다.
     """
     if event.get_function_calls():
         call = event.get_function_calls()[0]
@@ -40,6 +41,8 @@ def describe(event: Event) -> str:
     # content 가 None 인 이벤트도 있어서 바로 parts 를 읽지 않는다.
     parts = event.content.parts if event.content else None
     text = parts[0].text if parts else ""
+    # run 은 partial 이벤트를 describe 없이 이어 찍지만, describe 만
+    # 봐도 이벤트 종류 넷을 구분할 수 있게 partial 을 따로 표시한다.
     kind = "partial" if event.partial else "text"
     return f"[{event.author}] {kind} {text}"
 
