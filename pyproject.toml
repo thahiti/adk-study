@@ -23,6 +23,9 @@ target-version = "py313"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
+[tool.ruff.lint.per-file-ignores]
+"agents/*/__init__.py" = ["F401"]
+
 [tool.mypy]
 python_version = "3.13"
 ignore_missing_imports = true
