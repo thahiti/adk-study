@@ -1,87 +1,47 @@
-"""runner_01_minimal: 도구 호출이 만드는 이벤트 셋.
+"""runner_01_minimal: Runner 를 직접 만들어 for 루프에서 이벤트를 받는다."""
 
-FakeLlm 에 응답을 두 개 넣는 이유는 도구 턴에서 모델이 두 번
-불리기 때문이다. 첫 응답은 도구 호출 요청, 둘째 응답은 도구 결과를
-본 뒤의 최종 답이다.
-"""
-
-from adk_study.testing import FakeLlm, call_reply, run_turn, text_reply
-from agents.runner_01_minimal.agent import count_chars, root_agent
+from adk_study.testing import FakeLlm, call_reply, text_reply
+from agents.runner_01_minimal.agent import root_agent
+from agents.runner_01_minimal.main import APP_NAME, describe, run
 
 
-def test_count_chars_counts_without_spaces():
-    assert count_chars("안녕 하세요") == 5
-
-
-async def test_tool_turn_yields_three_events_in_order():
-    root_agent.model = FakeLlm(
+def count_then_answer() -> FakeLlm:
+    return FakeLlm(
         replies=[
             call_reply("count_chars", {"text": "안녕 하세요"}),
             text_reply("5글자예요"),
         ]
     )
 
-    events = await run_turn(root_agent, "글자 수 세 줘")
 
-    # 사용자 메시지는 세션에만 쌓이고 run_async 가 내보내지 않는다.
-    assert len(events) == 3
-    call, response, final = events
-    assert call.get_function_calls()[0].name == "count_chars"
-    # int 반환값은 ADK 가 {"result": 값} 으로 감싼다.
-    assert response.get_function_responses()[0].response == {"result": 5}
-    assert final.content.parts[0].text == "5글자예요"
+async def test_run_returns_every_event_the_runner_yields():
+    root_agent.model = count_then_answer()
 
+    events = await run(root_agent, "안녕 하세요 글자 수 세 줘")
 
-async def test_only_last_event_is_final():
-    root_agent.model = FakeLlm(
-        replies=[
-            call_reply("count_chars", {"text": "abc"}),
-            text_reply("3글자예요"),
-        ]
-    )
-
-    events = await run_turn(root_agent, "세 줘")
-
-    # LlmFlow 는 is_final_response() 가 True 인 이벤트가 나올 때까지
-    # 모델 호출을 반복한다. 앞 두 이벤트가 False 라서 턴이 이어진다.
-    assert [e.is_final_response() for e in events] == [False, False, True]
+    assert [e.author for e in events] == ["runner_tool"] * 3
+    assert events[-1].content.parts[0].text == "5글자예요"
 
 
-async def test_all_events_share_invocation_and_author():
-    root_agent.model = FakeLlm(
-        replies=[
-            call_reply("count_chars", {"text": "abc"}),
-            text_reply("3글자예요"),
-        ]
-    )
+async def test_run_prints_one_line_per_event_in_order(capsys):
+    root_agent.model = count_then_answer()
 
-    events = await run_turn(root_agent, "세 줘")
+    await run(root_agent, "안녕 하세요 글자 수 세 줘")
 
-    assert len({e.invocation_id for e in events}) == 1
-    # 도구를 실행한 주체는 ADK 지만 author 는 에이전트 name 이다.
-    assert {e.author for e in events} == {"runner_tool"}
-    # role 은 user 와 model 둘뿐이라 도구 결과는 user 가 된다.
-    assert [e.content.role for e in events] == ["model", "user", "model"]
+    lines = capsys.readouterr().out.strip().splitlines()
+    assert len(lines) == 3
+    assert "function_call" in lines[0]
+    assert "function_response" in lines[1]
+    assert "5글자예요" in lines[2]
 
 
-async def test_tool_result_goes_back_to_model_as_user_content():
-    root_agent.model = FakeLlm(
-        replies=[
-            call_reply("count_chars", {"text": "abc"}),
-            text_reply("3글자예요"),
-        ]
-    )
+async def test_describe_shows_author_and_kind():
+    root_agent.model = count_then_answer()
+    events = await run(root_agent, "안녕 하세요 글자 수 세 줘")
 
-    events = await run_turn(root_agent, "세 줘")
+    assert describe(events[0]).startswith("[runner_tool] function_call")
+    assert describe(events[2]).startswith("[runner_tool] text")
 
-    call, response, _ = events
-    # 응답의 id 가 호출의 id 와 같아서 어느 호출의 결과인지 이어진다.
-    assert response.get_function_responses()[0].id == (
-        call.get_function_calls()[0].id
-    )
-    # 두 번째 모델 호출의 대화 기록 마지막이 role user 인 도구 결과다.
-    requests = root_agent.model.requests
-    assert len(requests) == 2
-    last = requests[1].contents[-1]
-    assert last.role == "user"
-    assert last.parts[0].function_response.name == "count_chars"
+
+def test_app_name_matches_folder():
+    assert APP_NAME == "runner_01_minimal"
