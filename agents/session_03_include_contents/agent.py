@@ -1,4 +1,4 @@
-"""session_03_include_contents: 도구가 보는 Session 의 구조."""
+"""session_03_include_contents: 이력을 모델에 보내지 않는 에이전트."""
 
 from google.adk.agents import LlmAgent
 from google.adk.tools import ToolContext
@@ -19,8 +19,9 @@ def describe_session(tool_context: ToolContext) -> dict[str, object]:
 root_agent = LlmAgent(
     name="session_forgetful",
     model=make_model(),
-    description="자기 세션 정보를 알려 주는 에이전트",
+    description="이력을 보지 않고 매번 새로 답하는 에이전트",
     instruction="사용자가 세션에 대해 물으면 describe_session 도구를 쓰고 "
     "결과를 한국어로 알려 준다. 그 외 질문에는 한 문단으로 답한다.",
     tools=[describe_session],
+    include_contents="none",
 )

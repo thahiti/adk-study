@@ -2,22 +2,19 @@
 
 ## 이 단계가 보여주는 것
 
-- Session 은 app_name, user_id, id 로 식별되는 대화 하나다.
-  안에는 state 사전과 events 목록, last_update_time 이 있다.
-- 세션은 Runner 가 아니라 SessionService 가 만들고 저장한다.
-  기본은 InMemorySessionService 라 프로세스가 끝나면 사라진다.
-- 턴마다 사용자 메시지 이벤트와 에이전트 이벤트가 events 에 쌓인다.
-  도구가 실행되는 시점에는 이번 턴의 사용자 메시지와 function_call 이벤트가 이미 들어 있다.
-- 도구는 `tool_context.session` 으로 지금 세션을 읽을 수 있다.
-- 같은 사용자라도 세션이 다르면 events 를 공유하지 않는다.
+- 세션의 events 가 그대로 모델 입력이 되는 것이 기본이다.
+  `include_contents="default"` 면 LlmAgent 가 매 요청에 세션 이력 전체를 contents 로 넣는다.
+- `include_contents="none"` 이면 이번 턴의 사용자 메시지만 보낸다.
+  세션에는 여전히 모든 이벤트가 쌓이지만 모델은 앞 턴을 모른다.
+- 세션 이력(저장)과 모델 컨텍스트(전송)는 다른 개념이다. 이 옵션이 그 둘을 가른다.
 
 ## adk web 에서 확인할 것
 
-- "세션 알려 줘" 를 보낸다. 도구가 돌려준 id 가 주소창의 session id 와 같다.
-- 한 번 더 보내면 events 수가 6 이 된다. 앞 턴의 이벤트 넷과 이번 턴의 둘이다.
-- 왼쪽 위에서 새 세션을 만들면 events 가 2 부터 다시 시작한다.
-- adk web 을 껐다 켜면 세션 목록이 비어 있다. 다음 단계에서 남기는 방법을 본다.
+- "내 이름은 철수야" 를 보내고 "내 이름이 뭐지" 를 보낸다. 모델이 이름을 모른다고 답한다.
+- Events 탭에는 네 이벤트가 모두 남아 있다.
+- 둘째 응답 이벤트의 request 를 열면 contents 에 마지막 사용자 메시지 하나만 있다.
+- session_01_inmemory 에서 같은 대화를 하면 이름을 기억한다.
 
 ## 이전 단계와 다른 점
 
-event_01_text 에 tool_context.session 을 읽는 describe_session 도구가 더해졌다.
+session_01_inmemory 에 `include_contents="none"` 한 줄이 더해졌다.
