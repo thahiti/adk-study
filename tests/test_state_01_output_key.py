@@ -1,36 +1,46 @@
 """state_01_output_key: 응답을 state 에 저장하고 다음 턴에 읽는다."""
 
-from adk_study.testing import FakeLlm, run_turn, text_reply
+from google.adk.runners import InMemoryRunner
+
+from adk_study.testing import FakeLlm, run_in_session, run_turn, text_reply
 from agents.state_01_output_key.agent import root_agent
 
 
-async def test_text_reply_yields_exactly_one_event():
-    root_agent.model = FakeLlm(replies=[text_reply("오늘은 맑아요")])
+async def test_final_event_carries_answer_in_state_delta():
+    root_agent.model = FakeLlm(replies=[text_reply("파란색이 좋아요")])
 
-    events = await run_turn(root_agent, "날씨 어때")
+    events = await run_turn(root_agent, "무슨 색이 좋아")
 
-    assert len(events) == 1
-
-
-async def test_event_carries_identity_fields():
-    root_agent.model = FakeLlm(replies=[text_reply("오늘은 맑아요")])
-
-    event = (await run_turn(root_agent, "날씨 어때"))[0]
-
-    assert event.id
-    assert event.invocation_id.startswith("e-")
-    assert event.author == "state_memo"
-    assert event.timestamp > 0
+    assert events[-1].actions.state_delta == {"last_answer": "파란색이 좋아요"}
 
 
-async def test_event_content_and_actions_defaults():
-    root_agent.model = FakeLlm(replies=[text_reply("오늘은 맑아요")])
+async def test_answer_is_stored_in_session_state():
+    root_agent.model = FakeLlm(replies=[text_reply("파란색이 좋아요")])
+    runner = InMemoryRunner(agent=root_agent, app_name="test")
+    session = await runner.session_service.create_session(
+        app_name="test", user_id="user"
+    )
 
-    event = (await run_turn(root_agent, "날씨 어때"))[0]
+    await run_in_session(runner, session, "무슨 색이 좋아")
 
-    assert event.content.role == "model"
-    assert event.content.parts[0].text == "오늘은 맑아요"
-    assert event.partial is None
-    assert event.actions.state_delta == {}
-    assert event.actions.transfer_to_agent is None
-    assert event.is_final_response()
+    stored = await runner.session_service.get_session(
+        app_name="test", user_id="user", session_id=session.id
+    )
+    assert stored.state == {"last_answer": "파란색이 좋아요"}
+
+
+async def test_previous_answer_is_injected_into_instruction():
+    fake = FakeLlm(replies=[text_reply("파란색이 좋아요"), text_reply("네")])
+    root_agent.model = fake
+    runner = InMemoryRunner(agent=root_agent, app_name="test")
+    session = await runner.session_service.create_session(
+        app_name="test", user_id="user"
+    )
+
+    await run_in_session(runner, session, "무슨 색이 좋아")
+    await run_in_session(runner, session, "아까 뭐라고 했지")
+
+    first = str(fake.requests[0].config.system_instruction)
+    second = str(fake.requests[1].config.system_instruction)
+    assert "파란색이 좋아요" not in first
+    assert "파란색이 좋아요" in second
