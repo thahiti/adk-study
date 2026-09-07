@@ -9,6 +9,10 @@ Google ADK(Agent Development Kit) 1.36.x의 핵심 개념을 토픽별로 최소
   API를 쓰기 전에 v1.36.2 태그 소스나 `.venv/lib/python3.13/site-packages/google/adk/` 에 설치된 코드로 확인한다.
 - 1.36.2의 `adk web`은 agents 디렉터리 바로 아래 폴더만 인식한다. 중첩 폴더를 만들지 않는다.
 - OpenAI 모델은 `LiteLlm(model="openai/<모델명>")` 으로만 쓴다. `google.adk.labs.openai`는 1.36.2에 없다.
+- 1.36.2의 `adk web`은 옵션 없이 켜면 `agents/<단계>/.adk/session.db`에 세션을 남긴다.
+  InMemory 동작을 보려면 `--session_service_uri memory://`를 준다.
+- `uv run python`은 항상 프로젝트 루트에서 실행한다.
+  `.venv/.../google/adk/` 안에서 실행하면 ADK의 `platform` 패키지가 표준 라이브러리를 가려 import가 깨진다.
 
 ## 구조
 
@@ -31,6 +35,7 @@ docs/superpowers/       설계 문서와 구현 계획
 uv sync                              의존성 설치
 uv run adk web agents                모든 단계를 드롭다운에서 선택
 uv run adk web agents --session_service_uri sqlite:///sessions.db
+uv run adk web agents --session_service_uri memory://
 uv run python -m agents.runner_01_minimal.main
 uv run ruff check . && uv run ruff format --check .
 uv run mypy src agents
@@ -52,6 +57,15 @@ basics, event, state, session, runner, streaming, runtime-loop 순서다.
 2. 수정 커밋: 새 단계가 달성할 내용만 고친다. diff에 학습 포인트만 남긴다.
 3. 다른 토픽의 마지막 단계에서 출발하는 첫 단계도 복사 커밋을 먼저 만든다.
 4. 처음부터 새로 쓰는 단계만 복사 없이 커밋 하나로 만들고 본문에 이유를 적는다.
+
+## 단계 리뷰 규칙
+
+1. 토픽의 단계 구현이 끝나면 머지 전에 단계마다 리뷰 서브에이전트를 하나씩 병렬로 보낸다.
+2. 리뷰어는 ADK를 처음 보는 독자 관점에서 잘못된 가정, 빠진 설명, 자명하지 않은 코드를 찾고
+   설치된 1.36.2 소스로 사실을 확인한 뒤 주석, 독스트링, README를 보강한다.
+   코드 동작은 바꾸지 않고, README 주장을 검증하는 테스트는 더할 수 있다.
+3. 리뷰어는 자기 단계 폴더와 테스트 파일만 고치고 git 명령을 쓰지 않는다.
+4. 리뷰 결과는 단계마다 `docs(<토픽>): ...` 커밋 하나로 남긴다.
 
 ## 커밋 크기 규칙
 

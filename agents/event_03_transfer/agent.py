@@ -14,6 +14,9 @@ def count_chars(text: str) -> int:
     return len(text.replace(" ", ""))
 
 
+# description 은 부모 모델이 읽는 글이다. ADK 가 자식의 name 과
+# description 을 부모의 system instruction 에 넣어 주므로 어떤 일을
+# 맡는지 한 줄로 분명히 적는다.
 counter = LlmAgent(
     name="event_counter",
     model=make_model(),
@@ -22,6 +25,9 @@ counter = LlmAgent(
     tools=[count_chars],
 )
 
+# sub_agents 가 있으면 tools 를 주지 않아도 transfer_to_agent 도구가
+# 자동으로 붙는다. instruction 에 자식의 name 을 그대로 쓰는 이유는
+# 그 도구의 agent_name 인자로 name 을 넘겨야 하기 때문이다.
 root_agent = LlmAgent(
     name="event_parent",
     model=make_model(),
