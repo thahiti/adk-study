@@ -1,14 +1,9 @@
 """state_03_prefixes: user:, app:, temp: 접두어의 범위."""
 
 from google.adk.runners import InMemoryRunner
+from google.adk.sessions import Session
 
-from adk_study.testing import (
-    FakeLlm,
-    call_reply,
-    run_in_session,
-    run_turn,
-    text_reply,
-)
+from adk_study.testing import FakeLlm, call_reply, run_in_session, text_reply
 from agents.state_03_prefixes.agent import root_agent
 
 
@@ -18,37 +13,45 @@ def bump_then_answer() -> FakeLlm:
     )
 
 
-async def test_tool_write_appears_in_function_response_delta():
-    root_agent.model = bump_then_answer()
-
-    events = await run_turn(root_agent, "올려")
-
-    response = events[1]
-    assert response.get_function_responses()[0].response == {"result": 1}
-    assert response.actions.state_delta == {"count": 1}
-
-
-async def test_counter_accumulates_across_turns():
-    runner = InMemoryRunner(agent=root_agent, app_name="test")
+async def bump(runner: InMemoryRunner, user_id: str) -> tuple[list, Session]:
+    """user_id 로 새 세션을 만들어 한 번 올리고 저장된 세션을 돌려준다."""
     session = await runner.session_service.create_session(
-        app_name="test", user_id="user"
+        app_name="test", user_id=user_id
     )
-
     root_agent.model = bump_then_answer()
-    await run_in_session(runner, session, "올려")
-    root_agent.model = bump_then_answer()
-    events = await run_in_session(runner, session, "또 올려")
-
-    assert events[1].get_function_responses()[0].response == {"result": 2}
+    events = await run_in_session(runner, session, "올려")
     stored = await runner.session_service.get_session(
-        app_name="test", user_id="user", session_id=session.id
+        app_name="test", user_id=user_id, session_id=session.id
     )
-    assert stored.state["count"] == 2
+    assert stored is not None
+    return events, stored
 
 
-async def test_output_key_still_saves_final_text():
-    root_agent.model = bump_then_answer()
+async def test_temp_key_is_dropped_from_delta_and_state():
+    runner = InMemoryRunner(agent=root_agent, app_name="test")
 
-    events = await run_turn(root_agent, "올려")
+    events, stored = await bump(runner, "u1")
 
-    assert events[-1].actions.state_delta == {"last_answer": "올렸어요"}
+    delta = events[1].actions.state_delta
+    assert delta == {"count": 1, "user:total": 1, "app:hits": 1}
+    assert "temp:last_call" not in stored.state
+
+
+async def test_user_key_is_shared_across_sessions_of_same_user():
+    runner = InMemoryRunner(agent=root_agent, app_name="test")
+
+    await bump(runner, "u1")
+    _, second = await bump(runner, "u1")
+
+    assert second.state["count"] == 1
+    assert second.state["user:total"] == 2
+
+
+async def test_app_key_is_shared_across_users():
+    runner = InMemoryRunner(agent=root_agent, app_name="test")
+
+    await bump(runner, "u1")
+    _, other = await bump(runner, "u2")
+
+    assert other.state["app:hits"] == 2
+    assert other.state["user:total"] == 1

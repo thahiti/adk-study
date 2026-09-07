@@ -1,4 +1,4 @@
-"""state_03_prefixes: 도구가 state 를 읽고 쓴다."""
+"""state_03_prefixes: user:, app:, temp: 접두어로 범위를 나눈다."""
 
 from google.adk.agents import LlmAgent
 from google.adk.tools import ToolContext
@@ -7,9 +7,13 @@ from adk_study.models import make_model
 
 
 def bump_counter(tool_context: ToolContext) -> int:
-    """세션의 count 를 1 올리고 새 값을 돌려준다."""
-    count = tool_context.state.get("count", 0) + 1
-    tool_context.state["count"] = count
+    """세션, 사용자, 앱 범위의 카운터를 각각 1 올린다."""
+    state = tool_context.state
+    count = state.get("count", 0) + 1
+    state["count"] = count
+    state["user:total"] = state.get("user:total", 0) + 1
+    state["app:hits"] = state.get("app:hits", 0) + 1
+    state["temp:last_call"] = "bump_counter"
     return count
 
 
