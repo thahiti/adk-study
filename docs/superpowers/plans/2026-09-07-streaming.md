@@ -127,8 +127,12 @@ class FakeStreamLlm(BaseLlm):
         if stream:
             for chunk in reply:
                 yield LlmResponse(content=text_reply(chunk), partial=True)
-        yield LlmResponse(content=text_reply("".join(reply)))
+        yield LlmResponse(
+            content=text_reply("".join(reply)), partial=False
+        )
 ```
+
+최종 응답에 `partial=False` 를 명시하는 이유는 LiteLlm 이 그렇게 내기 때문이다. 명시하지 않으면 None 이 된다.
 
 `text_reply` 가 FakeStreamLlm 보다 뒤에 정의되어 있으면 함수 호출 시점에만 쓰이므로 그대로 두어도 된다.
 
@@ -226,7 +230,7 @@ async def test_none_mode_yields_only_final():
     events = await run(root_agent, "인사해 줘", streaming=False)
 
     assert [(e.content.parts[0].text, e.partial) for e in events] == [
-        ("안녕하세요", None),
+        ("안녕하세요", False),
     ]
 
 
