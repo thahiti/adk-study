@@ -1,8 +1,8 @@
 """streaming_03_tool: SSE 모드에서 partial 이벤트를 조각으로 받는다."""
 
-from adk_study.testing import FakeStreamLlm
+from adk_study.testing import FakeStreamLlm, call_reply
 from agents.streaming_03_tool.agent import root_agent
-from agents.streaming_03_tool.main import APP_NAME, run
+from agents.streaming_03_tool.main import APP_NAME, describe, run
 
 
 def chunked_answer() -> FakeStreamLlm:
@@ -58,3 +58,52 @@ async def test_all_events_share_one_invocation():
 
 def test_app_name_matches_folder():
     assert APP_NAME == "streaming_03_tool"
+
+
+def tool_then_chunks() -> FakeStreamLlm:
+    """도구 호출 응답 뒤에 조각으로 된 최종 답이 온다."""
+    return FakeStreamLlm(
+        replies=[
+            call_reply("count_chars", {"text": "안녕 하세요"}),
+            ["5글", "자예", "요"],
+        ]
+    )
+
+
+async def test_tool_call_is_never_partial():
+    root_agent.model = tool_then_chunks()
+
+    events = await run(root_agent, "글자 수 세 줘", streaming=True)
+
+    kinds = [
+        "call"
+        if e.get_function_calls()
+        else "response"
+        if e.get_function_responses()
+        else f"text:{e.partial}"
+        for e in events
+    ]
+    assert kinds == [
+        "call",
+        "response",
+        "text:True",
+        "text:True",
+        "text:True",
+        "text:False",
+    ]
+
+
+async def test_only_non_partial_events_are_stored():
+    root_agent.model = tool_then_chunks()
+
+    events = await run(root_agent, "글자 수 세 줘", streaming=True)
+
+    assert sum(1 for e in events if not e.partial) == 3
+
+
+async def test_describe_marks_partial_events():
+    root_agent.model = tool_then_chunks()
+    events = await run(root_agent, "글자 수 세 줘", streaming=True)
+
+    assert describe(events[2]) == "[stream_with_tool] partial 5글"
+    assert describe(events[-1]) == "[stream_with_tool] text 5글자예요"

@@ -2,23 +2,22 @@
 
 ## 이 단계가 보여주는 것
 
-- 스트리밍은 에이전트 설정이 아니라 한 턴의 RunConfig 로 켠다.
-  `RunConfig(streaming_mode=StreamingMode.SSE)` 를 run_async 에 넘긴다.
-- SSE 모드에서는 모델이 텍스트를 만드는 동안 조각마다 `partial=True` 이벤트가 온다.
-  마지막에 조각을 모두 합친 텍스트가 `partial=False` 이벤트로 온다.
-- partial 이벤트는 `is_final_response()` 가 False 이고 Runner 가 세션에 저장하지 않는다.
-  세션에는 최종 이벤트 하나만 남으므로 다음 턴의 모델 입력은 스트리밍 여부와 무관하다.
-- 기본값 `StreamingMode.NONE` 에서는 LlmFlow 가 partial 응답을 걸러 최종 이벤트만 yield 한다.
-  같은 모델이라도 for 루프에 나오는 이벤트 수가 달라진다.
-- 스크립트는 partial 이벤트의 텍스트를 줄바꿈 없이 이어 찍고, 최종 이벤트는 한 줄로 요약한다.
+- 도구 호출은 조각으로 오지 않는다.
+  LiteLlm 은 스트리밍 중에도 function_call 조각을 모아 하나의 non-partial 응답으로 낸다.
+  텍스트만 partial 이벤트로 흘러온다.
+- 도구 턴의 SSE 이벤트 순서는 function_call, function_response, 텍스트 조각들, 최종 텍스트다.
+  앞의 둘과 마지막 하나만 세션에 저장된다.
+- 첫 모델 호출은 도구 호출로 끝나므로 조각이 없고, 두 번째 모델 호출의 답만 조각으로 온다.
+  화면에 글자가 찍히기 전에 도구 실행이 끝나야 한다.
+- describe 가 partial 이벤트를 `partial` 로 표시해 종류가 넷(function_call, function_response, partial, text)이 된다.
 
 ## adk web 에서 확인할 것
 
-- 스크립트를 실행하면 글자가 조금씩 찍히다가 마지막에 `[stream_tool] text ...` 한 줄이 나온다.
-- adk web 은 오른쪽 위 설정에서 토큰 스트리밍을 켜면 요청에 `streaming: true` 를 실어 같은 SSE 모드로 돈다.
-  Events 탭에는 최종 이벤트만 남는다. partial 이벤트는 세션에 저장되지 않기 때문이다.
+- 토큰 스트리밍을 켜고 "안녕 하세요 글자 수 세 줘" 를 보낸다.
+- 도구 호출 표시가 먼저 나오고 그 뒤에 답이 글자 단위로 나타난다.
+- Events 탭에는 사용자 메시지, function_call, function_response, 최종 응답 넷만 있다.
 
 ## 이전 단계와 다른 점
 
-runner_01_minimal 의 run 에 streaming 인자가 생기고 run_async 에 RunConfig 를 넘긴다.
-partial 이벤트를 구분해 출력하는 분기가 더해졌다.
+streaming_01_sse 의 describe 가 partial 을 구분한다.
+에이전트와 도구는 그대로이고 테스트가 도구 턴의 순서를 고정한다.

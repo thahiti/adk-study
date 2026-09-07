@@ -1,8 +1,7 @@
-"""streaming_03_tool: SSE 모드에서 partial 이벤트를 조각으로 받는다.
+"""streaming_03_tool: 도구 호출 턴을 SSE 로 돌렸을 때의 이벤트 순서.
 
-RunConfig(streaming_mode=StreamingMode.SSE) 를 주면 모델이 내는
-텍스트 조각이 partial=True 이벤트로 하나씩 온다. 마지막에 전체
-텍스트를 담은 partial=False 이벤트가 오고 세션에는 그것만 남는다.
+도구 호출은 조각으로 오지 않는다. function_call 과 function_response
+가 먼저 non-partial 로 오고, 그 결과를 본 모델의 답만 조각으로 온다.
 
 실행: uv run python -m agents.streaming_03_tool.main [메시지]
 """
@@ -41,7 +40,8 @@ def describe(event: Event) -> str:
     # content 가 None 인 이벤트도 있어서 바로 parts 를 읽지 않는다.
     parts = event.content.parts if event.content else None
     text = parts[0].text if parts else ""
-    return f"[{event.author}] text {text}"
+    kind = "partial" if event.partial else "text"
+    return f"[{event.author}] {kind} {text}"
 
 
 async def run(
@@ -84,6 +84,6 @@ if __name__ == "__main__":
     asyncio.run(
         run(
             root_agent,
-            " ".join(sys.argv[1:]) or "자기소개를 세 문장으로 해 줘",
+            " ".join(sys.argv[1:]) or "안녕 하세요 글자 수 세 줘",
         )
     )
