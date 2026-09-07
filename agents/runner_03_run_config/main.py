@@ -52,6 +52,11 @@ async def run(
 
     max_llm_calls 는 한 턴의 모델 호출 상한이다. state 는 에이전트가
     돌기 전에 세션 state 에 반영할 값이다.
+
+    Raises:
+        LlmCallsLimitExceededError: 모델 호출이 max_llm_calls 를 넘으려
+            할 때. 그때까지 출력한 이벤트는 세션에 이미 저장돼 있고,
+            예외는 잡지 않고 호출한 쪽으로 올린다.
     """
     session_service = SqliteSessionService(f"sqlite:///{db_path}")
     runner = Runner(
@@ -72,6 +77,11 @@ async def run(
         role="user", parts=[types.Part.from_text(text=text)]
     )
     events: list[Event] = []
+    # state_delta 는 사용자 메시지 이벤트에 실려 먼저 세션에 저장되고,
+    # 그 뒤에 에이전트가 돌기 때문에 첫 모델 요청부터 값이 보인다.
+    # RunConfig 는 이 run_async 호출 한 번, 즉 한 턴에만 적용된다.
+    # 호출 횟수를 세는 카운터가 턴마다 새로 만들어지는 InvocationContext
+    # 안에 있어서 다음 턴에는 0 부터 다시 센다.
     async for event in runner.run_async(
         user_id=USER_ID,
         session_id=session.id,

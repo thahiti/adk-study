@@ -23,6 +23,10 @@ root_agent = LlmAgent(
     name="runner_config",
     model=make_model(),
     description="글자 수를 세어 주는 에이전트",
+    # {user_name?} 은 세션 state 의 user_name 으로 치환된다. 이 단계에서
+    # 이 값을 채우는 쪽은 에이전트가 아니라 main.py 의 run 이 run_async 에
+    # 넘기는 state_delta 다. 에이전트는 값이 어디서 왔는지 모르고, 없으면
+    # ? 덕분에 빈 문자열이 되어 adk web 에서도 그대로 쓸 수 있다.
     instruction="사용자가 글자 수를 물으면 count_chars 도구를 쓰고 결과를 "
     "한국어로 알려 준다. 사용자 이름: {user_name?}",
     tools=[count_chars],
