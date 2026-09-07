@@ -1,8 +1,8 @@
-"""runner_02_services: Runner 를 직접 만들어 for 루프에서 이벤트를 받는다.
+"""runner_02_services: 세션 서비스를 SQLite 로 바꾸고 다른 서비스도 넣는다.
 
-adk web 이 대신 해 주던 일을 스크립트로 옮긴다. 세션 서비스를 만들고,
-Runner 에 에이전트와 서비스를 넣고, 세션을 만든 뒤, run_async 가
-yield 하는 이벤트를 하나씩 받는다.
+Runner 는 세션, 아티팩트, 메모리 세 서비스를 받는다. 세션 서비스를
+SqliteSessionService 로 바꾸면 스크립트를 다시 실행해도 같은
+session_id 로 대화가 이어진다.
 
 실행: uv run python -m agents.runner_02_services.main [메시지]
 """
@@ -11,9 +11,11 @@ import asyncio
 import sys
 
 from google.adk.agents import BaseAgent
+from google.adk.artifacts import InMemoryArtifactService
 from google.adk.events import Event
+from google.adk.memory import InMemoryMemoryService
 from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
+from google.adk.sessions.sqlite_session_service import SqliteSessionService
 from google.genai import types
 
 from .agent import root_agent
@@ -35,15 +37,32 @@ def describe(event: Event) -> str:
     return f"[{event.author}] text {text}"
 
 
-async def run(agent: BaseAgent, text: str) -> list[Event]:
-    """세션 하나를 만들고 메시지 한 개를 보내 이벤트를 출력하고 모은다."""
-    session_service = InMemorySessionService()
+async def run(
+    agent: BaseAgent,
+    text: str,
+    *,
+    db_path: str = "sessions.db",
+    session_id: str = "runner-demo",
+) -> list[Event]:
+    """SQLite 세션에 메시지 한 개를 보내 이벤트를 출력하고 모은다.
+
+    같은 db_path 와 session_id 로 다시 부르면 이전 대화에 이어진다.
+    """
+    session_service = SqliteSessionService(f"sqlite:///{db_path}")
     runner = Runner(
-        app_name=APP_NAME, agent=agent, session_service=session_service
+        app_name=APP_NAME,
+        agent=agent,
+        session_service=session_service,
+        artifact_service=InMemoryArtifactService(),
+        memory_service=InMemoryMemoryService(),
     )
-    session = await session_service.create_session(
-        app_name=APP_NAME, user_id=USER_ID
+    session = await session_service.get_session(
+        app_name=APP_NAME, user_id=USER_ID, session_id=session_id
     )
+    if session is None:
+        session = await session_service.create_session(
+            app_name=APP_NAME, user_id=USER_ID, session_id=session_id
+        )
     message = types.Content(
         role="user", parts=[types.Part.from_text(text=text)]
     )

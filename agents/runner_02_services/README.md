@@ -2,25 +2,26 @@
 
 ## 이 단계가 보여주는 것
 
-- adk web 없이 에이전트를 돌리려면 네 가지가 필요하다.
-  SessionService, Runner, Session, 그리고 `run_async` 의 for 루프다.
-  adk web 은 이 넷을 대신 해 주고 있었다.
-- Runner 는 app_name, agent, session_service 로 만든다.
-  session_service 는 필수 인자다. InMemoryRunner 는 이 자리에 InMemorySessionService 를 넣어 주는 축약이다.
-- 세션은 Runner 가 아니라 session_service 로 만든다.
-  Runner 는 run_async 를 부를 때 user_id 와 session_id 로 그 세션을 찾는다.
-- `run_async` 는 async generator 다.
-  for 루프가 이벤트를 하나 꺼낼 때마다 에이전트 쪽 코드가 다음 yield 까지 진행된다.
-  사용자 메시지 이벤트는 세션에 저장만 되고 루프에는 나오지 않는다.
-- 스크립트 실행은 `uv run python -m agents.runner_01_minimal.main` 이다.
-  `.env` 의 OPENAI_API_KEY 로 실제 GPT 를 부른다.
+- Runner 는 서비스 셋을 받는다.
+  session_service 는 필수이고 artifact_service 와 memory_service 는 없으면 None 이다.
+  이 단계는 셋을 모두 명시해 Runner 가 무엇에 의존하는지 드러낸다.
+- 세션 서비스를 SqliteSessionService 로 바꾸면 스크립트를 다시 실행해도 세션이 남는다.
+  `get_session` 으로 먼저 찾고 없을 때만 `create_session(session_id=...)` 으로 만든다.
+- 에이전트와 for 루프는 runner_01 과 같다.
+  어디에 저장할지는 Runner 에 넣는 서비스가 정하고, 에이전트는 모른다.
 
-## adk web 에서 확인할 것
+## 스크립트에서 확인할 것
 
-- runner_01_minimal 은 adk web 에서도 그대로 동작한다. 에이전트는 event_02 와 같다.
-- 같은 메시지를 adk web 과 스크립트에 보내고 Events 탭의 이벤트 셋과 스크립트의 세 줄을 비교한다.
+```bash
+uv run python -m agents.runner_02_services.main "내 이름은 철수야"
+uv run python -m agents.runner_02_services.main "내 이름이 뭐지"
+```
+
+- 두 번째 실행에서 모델이 이름을 기억한다. 같은 session_id 로 이어졌기 때문이다.
+- 프로젝트 루트의 sessions.db 를 지우면 처음부터 시작한다.
+- adk web 에서도 runner_02_services 를 고를 수 있지만 adk web 은 자기 세션 서비스를 쓰므로 sessions.db 와 무관하다.
 
 ## 이전 단계와 다른 점
 
-event_02_function_call 에 main.py 가 더해졌다.
-에이전트 코드는 그대로이고, Runner 를 만드는 쪽이 adk web 에서 스크립트로 바뀌었다.
+runner_01_minimal 의 InMemorySessionService 가 SqliteSessionService 로 바뀌고 아티팩트, 메모리 서비스가 명시된다.
+run 에 db_path 와 session_id 인자가 생겼다.
