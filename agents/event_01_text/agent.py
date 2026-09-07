@@ -1,4 +1,4 @@
-"""event_01_text: instruction 만 있는 최소 LlmAgent."""
+"""event_01_text: 텍스트 응답 하나가 이벤트 하나가 되는 최소 흐름."""
 
 from google.adk.agents import LlmAgent
 
@@ -7,6 +7,6 @@ from adk_study.models import make_model
 root_agent = LlmAgent(
     name="event_text",
     model=make_model(),
-    description="인사만 하는 최소 에이전트",
-    instruction="사용자에게 한국어로 짧고 친절하게 인사한다.",
+    description="질문에 한 문단으로 답하는 에이전트",
+    instruction="사용자 질문에 한국어로 한 문단 안에 답한다.",
 )
