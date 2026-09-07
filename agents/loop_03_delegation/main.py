@@ -1,10 +1,9 @@
-"""loop_03_delegation: yield 가 러너로 제어를 넘기고 다시 받는 지점.
+"""loop_03_delegation: 자식 이벤트도 부모의 yield 를 거쳐 러너로 온다.
 
-에이전트는 yield 앞뒤에 한 줄씩 찍고, 러너 쪽 for 루프는 이벤트를
-받을 때마다 한 줄 찍는다. 두 출력이 번갈아 나오는 것이 이 단계의
-전부다. 에이전트 코드는 이벤트를 한꺼번에 만들어 돌려주는 것이
-아니라 하나 내보낼 때마다 멈췄다가 러너가 다음 것을 요청할 때
-이어서 돈다.
+러너는 넘겨받은 에이전트 하나만 돌린다. 자식이 낸 이벤트는 부모가
+다시 yield 해야 이 스크립트의 for 루프에 도착한다. 그래서 출력은
+`runner: got 자식이 답함` 다음에 `agent: after child` 순서가 되고,
+자식 이벤트가 부모와 러너를 차례로 거쳤다는 것을 눈으로 볼 수 있다.
 
 실행: uv run python -m agents.loop_03_delegation.main
 """
@@ -46,6 +45,8 @@ async def run(agent: BaseAgent, text: str) -> list[Event]:
         user_id=USER_ID, session_id=session.id, new_message=message
     ):
         # 이 줄이 찍히는 시점에 에이전트는 yield 에서 멈춰 있다.
+        # 자식 이벤트라면 자식과 부모가 둘 다 멈춰 있다. 부모는
+        # 자식을 감싼 async for 안에서 기다리는 중이다.
         print(f"runner: got {text_of(event)}")
         events.append(event)
     return events
