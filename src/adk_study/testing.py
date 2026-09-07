@@ -10,7 +10,8 @@ from typing import Any
 from google.adk.agents import BaseAgent
 from google.adk.events import Event
 from google.adk.models import BaseLlm, LlmRequest, LlmResponse
-from google.adk.runners import InMemoryRunner
+from google.adk.runners import InMemoryRunner, Runner
+from google.adk.sessions import Session
 from google.genai import types
 from pydantic import Field
 
@@ -42,6 +43,23 @@ def call_reply(name: str, args: dict[str, Any]) -> types.Content:
     )
 
 
+async def run_in_session(
+    runner: Runner, session: Session, text: str
+) -> list[Event]:
+    """이미 있는 세션에 사용자 메시지 한 개를 보내 이벤트를 모은다."""
+    message = types.Content(
+        role="user", parts=[types.Part.from_text(text=text)]
+    )
+    return [
+        event
+        async for event in runner.run_async(
+            user_id=session.user_id,
+            session_id=session.id,
+            new_message=message,
+        )
+    ]
+
+
 async def run_turn(
     agent: BaseAgent,
     text: str,
@@ -54,12 +72,4 @@ async def run_turn(
     session = await runner.session_service.create_session(
         app_name=app_name, user_id=user_id
     )
-    message = types.Content(
-        role="user", parts=[types.Part.from_text(text=text)]
-    )
-    return [
-        event
-        async for event in runner.run_async(
-            user_id=user_id, session_id=session.id, new_message=message
-        )
-    ]
+    return await run_in_session(runner, session, text)
