@@ -1,4 +1,4 @@
-"""loop_01_pause_resume: LLM 없이 Event 를 직접 만들어 yield 한다.
+"""loop_01_pause_resume: yield 가 러너로 제어를 넘기고 다시 받는 지점.
 
 BaseAgent 의 run_async 는 @final 이라 덮어쓸 수 없다. run_async 가
 콜백 처리와 InvocationContext 준비를 맡고 _run_async_impl 을 부르므로
@@ -34,27 +34,23 @@ class Announcer(BaseAgent):
     async def _run_async_impl(
         self, ctx: InvocationContext
     ) -> AsyncGenerator[Event]:
-        # Event 에서 필수인 필드는 author 뿐이다. 그래도 아래 둘은
-        # 직접 채워야 한다.
-        # - author: Runner 가 다음 턴에 세션의 마지막 에이전트 이벤트
-        #   author 로 실행할 에이전트를 찾으므로 self.name 이어야 한다.
-        # - invocation_id: 기본값이 빈 문자열이라 안 채워도 오류는
-        #   없지만, 세션에 빈 값으로 남아 사용자 메시지와 같은 턴이라는
-        #   연결이 끊긴다. ctx 에 Runner 가 만든 값이 들어 있다.
+        print("agent: before yield 1")
         yield Event(
             author=self.name,
             invocation_id=ctx.invocation_id,
             content=_text("첫 번째 알림"),
         )
-        # yield 하면 Runner 가 이 이벤트를 세션에 기록하고 호출자에게
-        # 넘긴 뒤에야 다음 줄이 실행된다. 이벤트를 한꺼번에 모아
-        # 돌려주는 것이 아니라 하나씩 흘려보내는 구조다.
+        # 러너가 위 이벤트를 세션에 저장하고 호출자에게 넘긴 뒤,
+        # 호출자가 다음 이벤트를 요청해야 이 줄이 실행된다.
+        print("agent: after yield 1")
+        print("agent: before yield 2")
         yield Event(
             author=self.name,
             invocation_id=ctx.invocation_id,
             content=_text("두 번째 알림"),
             actions=EventActions(state_delta={"announced": 2}),
         )
+        print("agent: after yield 2")
 
 
 root_agent = Announcer(name="loop_pause")
