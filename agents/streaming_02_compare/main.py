@@ -126,7 +126,7 @@ async def compare(agent: BaseAgent, text: str) -> dict[str, int]:
 
 if __name__ == "__main__":
     asyncio.run(
-        run(
+        compare(
             root_agent,
             " ".join(sys.argv[1:]) or "자기소개를 세 문장으로 해 줘",
         )
