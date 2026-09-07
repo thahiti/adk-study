@@ -28,6 +28,7 @@ uv run adk web agents
 | 3 | state | state_01_output_key, state_02_tool_context, state_03_prefixes, state_04_sequential |
 | 4 | session | session_01_inmemory, session_02_sqlite, session_03_include_contents, session_04_compaction |
 | 5 | runner | runner_01_minimal, runner_02_services, runner_03_run_config |
+| 6 | streaming | streaming_01_sse, streaming_02_compare, streaming_03_tool |
 
 토픽이 머지될 때마다 이 표에 줄을 더한다.
 
