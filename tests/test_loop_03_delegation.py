@@ -1,21 +1,37 @@
-"""loop_03_delegation: yield 뒤에 state_delta 가 세션에 반영되어 있다."""
+"""loop_03_delegation: 커스텀 에이전트가 자식을 돌리고 이벤트를 올린다."""
 
-from agents.loop_03_delegation.agent import root_agent
+from adk_study.testing import FakeLlm, text_reply
+from agents.loop_03_delegation.agent import child, root_agent
 from agents.loop_03_delegation.main import run
 
 
-async def test_state_is_visible_only_after_yield(capsys):
+async def test_child_events_are_reyielded_between_parent_events():
+    child.model = FakeLlm(replies=[text_reply("자식이 답함")])
+
+    events = await run(root_agent, "시작")
+
+    assert [(e.author, e.content.parts[0].text) for e in events] == [
+        ("loop_orchestrator", "시작"),
+        ("loop_child", "자식이 답함"),
+        ("loop_orchestrator", "끝"),
+    ]
+
+
+async def test_child_shares_invocation_and_knows_parent():
+    child.model = FakeLlm(replies=[text_reply("자식이 답함")])
+
+    events = await run(root_agent, "시작")
+
+    assert len({e.invocation_id for e in events}) == 1
+    assert child.parent_agent is root_agent
+
+
+async def test_runner_line_appears_between_child_and_end(capsys):
+    child.model = FakeLlm(replies=[text_reply("자식이 답함")])
+
     await run(root_agent, "시작")
 
     lines = capsys.readouterr().out.strip().splitlines()
-    before = lines.index("agent: announced before yield = None")
-    got = lines.index("runner: got 두 번째 알림")
-    after = lines.index("agent: announced after yield = 2")
-    assert before < got < after
-
-
-async def test_third_event_reports_committed_value():
-    events = await run(root_agent, "시작")
-
-    assert events[-1].content.parts[0].text == "state 반영 확인: 2"
-    assert events[-1].actions.state_delta == {}
+    assert lines.index("runner: got 자식이 답함") < lines.index(
+        "agent: after child"
+    )

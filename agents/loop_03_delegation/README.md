@@ -2,19 +2,21 @@
 
 ## 이 단계가 보여주는 것
 
-- state_delta 를 실은 이벤트를 yield 하기 전에는 `ctx.session.state` 에 그 키가 없다.
-  yield 한 뒤에는 있다.
-- 러너는 이벤트를 받으면 `session_service.append_event` 를 부르고, 세션 서비스가 delta 를 세션 state 에 합친다.
-  그 뒤에야 에이전트를 재개하므로 에이전트는 yield 다음 줄에서 반영된 값을 읽을 수 있다.
-- 이것이 ADK 런타임의 핵심 약속이다.
-  에이전트, 도구, 콜백이 이벤트를 내보낸 뒤 이어서 도는 코드는 그 이벤트가 처리된 뒤의 상태를 본다.
-- 셋째 이벤트는 반영된 값을 텍스트로 알린다. 세션의 이벤트 셋 중 둘째만 delta 를 가진다.
+- 커스텀 에이전트는 자식을 직접 돌릴 수 있다.
+  `self.sub_agents[0].run_async(ctx)` 가 자식의 이벤트 제너레이터를 돌려주고, 그 이벤트를 다시 yield 해야 러너까지 올라간다.
+- 자식은 부모의 InvocationContext 를 복사해 agent 만 자기로 바꿔 쓴다.
+  그래서 invocation_id 와 세션이 같고, 자식 이벤트의 author 는 자식 name 이다.
+- 자식 이벤트도 러너를 한 번씩 거친다.
+  자식이 yield 하면 부모가 다시 yield 하고, 러너가 저장한 뒤에야 부모의 다음 줄이 돈다.
+  스크립트에서 `runner: got 자식이 답함` 이 `agent: after child` 보다 먼저 찍히는 것이 그 증거다.
+- `sub_agents` 에 넣으면 `child.parent_agent` 가 자동으로 설정된다.
+  SequentialAgent 와 ParallelAgent 가 안에서 하는 일이 이것이다.
 
 ## adk web 에서 확인할 것
 
-- 스크립트를 실행해 `announced before yield = None` 과 `after yield = 2` 사이에 `runner: got 두 번째 알림` 이 있는지 본다.
-- adk web 에서 메시지를 보내면 셋째 알림에 `state 반영 확인: 2` 가 나오고 State 탭에 announced 가 2 다.
+- 메시지를 보내면 "시작", 자식 답, "끝" 세 이벤트가 차례로 나온다.
+- Events 탭에서 세 이벤트의 author 가 loop_orchestrator, loop_child, loop_orchestrator 이고 invocationId 가 같다.
 
 ## 이전 단계와 다른 점
 
-loop_01_pause_resume 의 둘째 yield 앞뒤에 state 읽기가 더해지고 셋째 이벤트가 생겼다.
+Announcer 가 자식 LlmAgent 를 품은 Orchestrator 로 바뀌었다. state_delta 는 이 단계의 관심사가 아니라 뺐다.
