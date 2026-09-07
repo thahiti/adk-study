@@ -30,6 +30,33 @@ class FakeLlm(BaseLlm):
         yield LlmResponse(content=self.replies.pop(0))
 
 
+class FakeStreamLlm(BaseLlm):
+    """조각 목록은 스트리밍으로, Content 는 한 번에 돌려준다.
+
+    replies 원소가 list[str] 이면 stream=True 일 때 조각마다
+    partial=True 응답을 내고 마지막에 합친 응답을 낸다. stream=False
+    면 합친 응답만 낸다. 원소가 Content 면 partial 없이 그대로 낸다.
+    LiteLlm 이 스트리밍할 때 내는 응답 순서와 같다.
+    """
+
+    model: str = "fake-stream"
+    replies: list[list[str] | types.Content]
+    requests: list[LlmRequest] = Field(default_factory=list)
+
+    async def generate_content_async(
+        self, llm_request: LlmRequest, stream: bool = False
+    ) -> AsyncGenerator[LlmResponse]:
+        self.requests.append(llm_request)
+        reply = self.replies.pop(0)
+        if isinstance(reply, types.Content):
+            yield LlmResponse(content=reply)
+            return
+        if stream:
+            for chunk in reply:
+                yield LlmResponse(content=text_reply(chunk), partial=True)
+        yield LlmResponse(content=text_reply("".join(reply)), partial=False)
+
+
 def text_reply(text: str) -> types.Content:
     """모델이 텍스트로 답한 것처럼 보이는 Content 를 만든다."""
     return types.Content(role="model", parts=[types.Part.from_text(text=text)])
