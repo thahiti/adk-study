@@ -1,6 +1,8 @@
-"""session_04_compaction: 도구가 보는 Session 의 구조."""
+"""session_04_compaction: App 이 두 턴마다 이력을 요약해 압축한다."""
 
 from google.adk.agents import LlmAgent
+from google.adk.apps import App
+from google.adk.apps.app import EventsCompactionConfig
 from google.adk.tools import ToolContext
 
 from adk_study.models import make_model
@@ -23,4 +25,12 @@ root_agent = LlmAgent(
     instruction="사용자가 세션에 대해 물으면 describe_session 도구를 쓰고 "
     "결과를 한국어로 알려 준다. 그 외 질문에는 한 문단으로 답한다.",
     tools=[describe_session],
+)
+
+app = App(
+    name="session_04_compaction",
+    root_agent=root_agent,
+    events_compaction_config=EventsCompactionConfig(
+        compaction_interval=2, overlap_size=0
+    ),
 )

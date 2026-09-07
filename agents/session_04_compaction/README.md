@@ -2,22 +2,21 @@
 
 ## 이 단계가 보여주는 것
 
-- Session 은 app_name, user_id, id 로 식별되는 대화 하나다.
-  안에는 state 사전과 events 목록, last_update_time 이 있다.
-- 세션은 Runner 가 아니라 SessionService 가 만들고 저장한다.
-  기본은 InMemorySessionService 라 프로세스가 끝나면 사라진다.
-- 턴마다 사용자 메시지 이벤트와 에이전트 이벤트가 events 에 쌓인다.
-  도구가 실행되는 시점에는 이번 턴의 사용자 메시지와 function_call 이벤트가 이미 들어 있다.
-- 도구는 `tool_context.session` 으로 지금 세션을 읽을 수 있다.
-- 같은 사용자라도 세션이 다르면 events 를 공유하지 않는다.
+- App 은 root_agent 를 감싸 앱 수준 설정을 붙이는 단위다. adk web 은 agent.py 에 `app` 이 있으면 root_agent 보다 먼저 쓴다.
+- `events_compaction_config` 를 주면 Runner 가 compaction_interval 턴마다 이력을 요약한다.
+  요약 요청은 root_agent 의 모델로 나가고, 결과는 `actions.compaction` 이 채워진 이벤트로 세션에 저장된다.
+- 요약기는 첫 압축 시점의 모델로 한 번 만들어져 config 에 캐시된다.
+- 이후 턴의 모델 요청은 원본 이벤트 대신 "For context:" 로 시작하는 요약 콘텐츠를 받는다.
+  세션에는 원본 이벤트가 그대로 남는다.
+- session_03 이 이력을 아예 끊는다면 이 단계는 이력을 줄여서 보낸다.
+- 1.36.2 에서 EventsCompactionConfig 는 실험 기능이라 import 시 경고가 난다.
 
 ## adk web 에서 확인할 것
 
-- "세션 알려 줘" 를 보낸다. 도구가 돌려준 id 가 주소창의 session id 와 같다.
-- 한 번 더 보내면 events 수가 6 이 된다. 앞 턴의 이벤트 넷과 이번 턴의 둘이다.
-- 왼쪽 위에서 새 세션을 만들면 events 가 2 부터 다시 시작한다.
-- adk web 을 껐다 켜면 세션 목록이 비어 있다. 다음 단계에서 남기는 방법을 본다.
+- 짧은 대화를 세 턴 주고받는다.
+- Events 탭에 author 가 user 이고 actions.compaction 이 있는 이벤트가 둘째 턴 뒤에 생긴다.
+- 셋째 턴 응답 이벤트의 request 를 열면 contents 첫 항목이 "For context:" 로 시작한다.
 
 ## 이전 단계와 다른 점
 
-event_01_text 에 tool_context.session 을 읽는 describe_session 도구가 더해졌다.
+session_01_inmemory 의 root_agent 를 App 으로 감싸고 events_compaction_config 를 준다.
