@@ -1,10 +1,10 @@
-"""loop_02_state_commit: yield 가 러너로 제어를 넘기고 다시 받는 지점.
+"""loop_02_state_commit: yield 뒤에 state_delta 가 세션에 반영되어 있다.
 
-에이전트는 yield 앞뒤에 한 줄씩 찍고, 러너 쪽 for 루프는 이벤트를
-받을 때마다 한 줄 찍는다. 두 출력이 번갈아 나오는 것이 이 단계의
-전부다. 에이전트 코드는 이벤트를 한꺼번에 만들어 돌려주는 것이
-아니라 하나 내보낼 때마다 멈췄다가 러너가 다음 것을 요청할 때
-이어서 돈다.
+loop_01_pause_resume 과 같은 러너 스크립트다. 달라진 것은 에이전트
+쪽 출력뿐이라, 여기서는 announced 를 찍는 두 줄 사이에 러너 쪽
+"runner: got 두 번째 알림" 이 끼어드는 것을 본다. 러너는 이벤트를
+저장한 뒤에 호출자에게 넘기므로, 그 줄이 찍힌 시점에는 delta 가
+이미 세션에 합쳐져 있다.
 
 실행: uv run python -m agents.loop_02_state_commit.main
 """
@@ -45,7 +45,10 @@ async def run(agent: BaseAgent, text: str) -> list[Event]:
     async for event in runner.run_async(
         user_id=USER_ID, session_id=session.id, new_message=message
     ):
-        # 이 줄이 찍히는 시점에 에이전트는 yield 에서 멈춰 있다.
+        # 이 줄이 찍히는 시점에 에이전트는 yield 에서 멈춰 있고,
+        # 러너는 이미 append_event 를 끝냈다. 러너 안에서 저장이
+        # yield 보다 앞에 있어서, 호출자가 이벤트를 보기 전에 세션
+        # 반영이 끝난다.
         print(f"runner: got {text_of(event)}")
         events.append(event)
     return events
