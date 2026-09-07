@@ -1,4 +1,9 @@
-"""event_01_text: 텍스트 응답 하나가 이벤트 하나가 되는 최소 흐름."""
+"""event_01_text: 텍스트 응답 하나가 이벤트 하나가 되는 최소 흐름.
+
+에이전트 코드는 basics_01_hello 와 같다. 도구 없이 텍스트로만 답하게
+해서 한 턴에 모델 응답 이벤트가 하나만 생기게 하는 것이 목적이다.
+Event 의 필드는 tests/test_event_01_text.py 에서 하나씩 확인한다.
+"""
 
 from google.adk.agents import LlmAgent
 
