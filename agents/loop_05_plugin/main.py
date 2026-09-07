@@ -27,6 +27,10 @@ async def run_turns(agent: BaseAgent, texts: list[str]) -> list[list[Event]]:
     러너는 app 으로 만들므로 플러그인이 함께 붙는다. 실행되는
     에이전트는 app 의 root_agent 이고 agent 인자는 앞 단계와 같은
     시그니처를 유지하기 위한 것이다.
+
+    즉 agent 인자는 여기서 쓰이지 않는다. Runner 에 app 과 agent 를
+    같이 넘기면 ValueError 가 나므로 넘기지 않는다. app_name 도 주지
+    않으면 app.name 을 그대로 쓴다.
     """
     session_service = InMemorySessionService()
     runner = Runner(app=app, session_service=session_service)
@@ -44,6 +48,7 @@ async def run_turns(agent: BaseAgent, texts: list[str]) -> list[list[Event]]:
                 user_id=USER_ID, session_id=session.id, new_message=message
             )
         ]
+        # plugin 줄이 먼저 흐르고 턴이 끝난 뒤 이 줄이 찍힌다.
         authors = ", ".join(e.author for e in events)
         print(f"turn {number}: {authors}")
         turns.append(events)
