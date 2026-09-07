@@ -2,20 +2,19 @@
 
 ## 이 단계가 보여주는 것
 
-- 에이전트의 `_run_async_impl` 은 async generator 다.
-  yield 는 이벤트를 러너에 넘기는 동시에 에이전트를 그 자리에서 멈추는 지점이다.
-- 러너는 이벤트를 받으면 세션에 저장하고 호출자(for 루프)에게 넘긴다.
-  호출자가 다음 이벤트를 요청해야 에이전트가 yield 다음 줄부터 이어서 돈다.
-- 그래서 스크립트 출력은 "agent: before yield 1, runner: got ..., agent: after yield 1" 순서로 번갈아 나온다.
-  에이전트가 이벤트를 모두 만든 뒤 러너가 받는 것이 아니다.
-- 이 구조 덕분에 러너는 이벤트 하나를 처리(저장, 플러그인, 상태 반영)한 뒤에 에이전트를 재개할 수 있다.
-  다음 단계에서 그 결과를 에이전트가 읽는 것을 본다.
+- state_delta 를 실은 이벤트를 yield 하기 전에는 `ctx.session.state` 에 그 키가 없다.
+  yield 한 뒤에는 있다.
+- 러너는 이벤트를 받으면 `session_service.append_event` 를 부르고, 세션 서비스가 delta 를 세션 state 에 합친다.
+  그 뒤에야 에이전트를 재개하므로 에이전트는 yield 다음 줄에서 반영된 값을 읽을 수 있다.
+- 이것이 ADK 런타임의 핵심 약속이다.
+  에이전트, 도구, 콜백이 이벤트를 내보낸 뒤 이어서 도는 코드는 그 이벤트가 처리된 뒤의 상태를 본다.
+- 셋째 이벤트는 반영된 값을 텍스트로 알린다. 세션의 이벤트 셋 중 둘째만 delta 를 가진다.
 
 ## adk web 에서 확인할 것
 
-- 스크립트 `uv run python -m agents.loop_01_pause_resume.main` 을 실행해 여섯 줄의 순서를 본다.
-- adk web 에서 메시지를 보내면 알림 두 개가 차례로 나타난다. 터미널에는 agent 쪽 print 만 찍힌다.
+- 스크립트를 실행해 `announced before yield = None` 과 `after yield = 2` 사이에 `runner: got 두 번째 알림` 이 있는지 본다.
+- adk web 에서 메시지를 보내면 셋째 알림에 `state 반영 확인: 2` 가 나오고 State 탭에 announced 가 2 다.
 
 ## 이전 단계와 다른 점
 
-event_04_custom_event 에 yield 전후 print 와 러너 쪽 print 를 찍는 main.py 가 더해졌다.
+loop_01_pause_resume 의 둘째 yield 앞뒤에 state 읽기가 더해지고 셋째 이벤트가 생겼다.

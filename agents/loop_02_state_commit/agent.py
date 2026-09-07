@@ -1,4 +1,4 @@
-"""loop_02_state_commit: yield 가 러너로 제어를 넘기고 다시 받는 지점.
+"""loop_02_state_commit: yield 뒤에 state_delta 가 세션에 반영되어 있다.
 
 BaseAgent 의 run_async 는 @final 이라 덮어쓸 수 없다. run_async 가
 콜백 처리와 InvocationContext 준비를 맡고 _run_async_impl 을 부르므로
@@ -44,6 +44,10 @@ class Announcer(BaseAgent):
         # 호출자가 다음 이벤트를 요청해야 이 줄이 실행된다.
         print("agent: after yield 1")
         print("agent: before yield 2")
+        # yield 전에는 아직 세션에 없다. 러너가 이 이벤트를 저장해야
+        # 반영되기 때문이다.
+        before = ctx.session.state.get("announced")
+        print(f"agent: announced before yield = {before}")
         yield Event(
             author=self.name,
             invocation_id=ctx.invocation_id,
@@ -51,6 +55,15 @@ class Announcer(BaseAgent):
             actions=EventActions(state_delta={"announced": 2}),
         )
         print("agent: after yield 2")
+        # 러너가 append_event 로 저장하면서 delta 를 세션 state 에
+        # 합친 뒤 재개했으므로 여기서는 값이 보인다.
+        announced = ctx.session.state.get("announced")
+        print(f"agent: announced after yield = {announced}")
+        yield Event(
+            author=self.name,
+            invocation_id=ctx.invocation_id,
+            content=_text(f"state 반영 확인: {announced}"),
+        )
 
 
 root_agent = Announcer(name="loop_state")

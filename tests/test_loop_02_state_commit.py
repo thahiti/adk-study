@@ -1,28 +1,21 @@
-"""loop_02_state_commit: yield 가 러너로 제어를 넘기고 다시 받는 지점."""
+"""loop_02_state_commit: yield 뒤에 state_delta 가 세션에 반영되어 있다."""
 
 from agents.loop_02_state_commit.agent import root_agent
 from agents.loop_02_state_commit.main import run
 
 
-async def test_agent_and_runner_lines_interleave(capsys):
+async def test_state_is_visible_only_after_yield(capsys):
     await run(root_agent, "시작")
 
     lines = capsys.readouterr().out.strip().splitlines()
-    assert lines == [
-        "agent: before yield 1",
-        "runner: got 첫 번째 알림",
-        "agent: after yield 1",
-        "agent: before yield 2",
-        "runner: got 두 번째 알림",
-        "agent: after yield 2",
-    ]
+    before = lines.index("agent: announced before yield = None")
+    got = lines.index("runner: got 두 번째 알림")
+    after = lines.index("agent: announced after yield = 2")
+    assert before < got < after
 
 
-async def test_run_collects_both_events():
+async def test_third_event_reports_committed_value():
     events = await run(root_agent, "시작")
 
-    assert [e.content.parts[0].text for e in events] == [
-        "첫 번째 알림",
-        "두 번째 알림",
-    ]
-    assert events[1].actions.state_delta == {"announced": 2}
+    assert events[-1].content.parts[0].text == "state 반영 확인: 2"
+    assert events[-1].actions.state_delta == {}
