@@ -1,10 +1,8 @@
-"""loop_04_transfer_next_turn: yield 가 러너로 제어를 넘기고 다시 받는 지점.
+"""loop_04_transfer_next_turn: 전환 뒤 다음 턴은 자식이 바로 이어받는다.
 
-에이전트는 yield 앞뒤에 한 줄씩 찍고, 러너 쪽 for 루프는 이벤트를
-받을 때마다 한 줄 찍는다. 두 출력이 번갈아 나오는 것이 이 단계의
-전부다. 에이전트 코드는 이벤트를 한꺼번에 만들어 돌려주는 것이
-아니라 하나 내보낼 때마다 멈췄다가 러너가 다음 것을 요청할 때
-이어서 돈다.
+러너는 턴을 시작할 때 세션의 마지막 에이전트 이벤트 author 를 보고
+실행할 에이전트를 고른다. 첫 턴에서 부모가 자식에게 넘겼다면 둘째
+턴은 부모를 거치지 않고 자식이 바로 받는다.
 
 실행: uv run python -m agents.loop_04_transfer_next_turn.main
 """
@@ -23,14 +21,8 @@ APP_NAME = "loop_04_transfer_next_turn"
 USER_ID = "user"
 
 
-def text_of(event: Event) -> str:
-    """이벤트의 첫 텍스트 파트를 돌려준다. 없으면 빈 문자열이다."""
-    parts = event.content.parts if event.content else None
-    return (parts[0].text or "") if parts else ""
-
-
-async def run(agent: BaseAgent, text: str) -> list[Event]:
-    """메시지 한 개를 보내고 이벤트를 받을 때마다 한 줄 찍는다."""
+async def run_turns(agent: BaseAgent, texts: list[str]) -> list[list[Event]]:
+    """한 세션에 메시지를 차례로 보내고 턴마다 author 목록을 찍는다."""
     session_service = InMemorySessionService()
     runner = Runner(
         app_name=APP_NAME, agent=agent, session_service=session_service
@@ -38,18 +30,22 @@ async def run(agent: BaseAgent, text: str) -> list[Event]:
     session = await session_service.create_session(
         app_name=APP_NAME, user_id=USER_ID
     )
-    message = types.Content(
-        role="user", parts=[types.Part.from_text(text=text)]
-    )
-    events: list[Event] = []
-    async for event in runner.run_async(
-        user_id=USER_ID, session_id=session.id, new_message=message
-    ):
-        # 이 줄이 찍히는 시점에 에이전트는 yield 에서 멈춰 있다.
-        print(f"runner: got {text_of(event)}")
-        events.append(event)
-    return events
+    turns: list[list[Event]] = []
+    for number, text in enumerate(texts, start=1):
+        message = types.Content(
+            role="user", parts=[types.Part.from_text(text=text)]
+        )
+        events = [
+            event
+            async for event in runner.run_async(
+                user_id=USER_ID, session_id=session.id, new_message=message
+            )
+        ]
+        authors = ", ".join(e.author for e in events)
+        print(f"turn {number}: {authors}")
+        turns.append(events)
+    return turns
 
 
 if __name__ == "__main__":
-    asyncio.run(run(root_agent, "시작"))
+    asyncio.run(run_turns(root_agent, ["넘겨 줘", "하나 더 물어볼게"]))

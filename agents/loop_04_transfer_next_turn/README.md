@@ -2,21 +2,21 @@
 
 ## 이 단계가 보여주는 것
 
-- 커스텀 에이전트는 자식을 직접 돌릴 수 있다.
-  `self.sub_agents[0].run_async(ctx)` 가 자식의 이벤트 제너레이터를 돌려주고, 그 이벤트를 다시 yield 해야 러너까지 올라간다.
-- 자식은 부모의 InvocationContext 를 복사해 agent 만 자기로 바꿔 쓴다.
-  그래서 invocation_id 와 세션이 같고, 자식 이벤트의 author 는 자식 name 이다.
-- 자식 이벤트도 러너를 한 번씩 거친다.
-  자식이 yield 하면 부모가 다시 yield 하고, 러너가 저장한 뒤에야 부모의 다음 줄이 돈다.
-  스크립트에서 `runner: got 자식이 답함` 이 `agent: after child` 보다 먼저 찍히는 것이 그 증거다.
-- `sub_agents` 에 넣으면 `child.parent_agent` 가 자동으로 설정된다.
-  SequentialAgent 와 ParallelAgent 가 안에서 하는 일이 이것이다.
+- 러너는 턴마다 root_agent 부터 시작하지 않는다.
+  `run_async` 는 세션의 이벤트를 뒤에서부터 보고 마지막 에이전트 이벤트의 author 를 찾아 그 에이전트를 실행한다.
+- 첫 턴에서 부모가 `transfer_to_agent` 로 자식에게 넘기면 마지막 이벤트의 author 는 자식이다.
+  둘째 턴은 부모 모델을 부르지 않고 자식이 바로 받는다.
+- 이 선택은 에이전트 코드가 아니라 러너의 `_find_agent_to_run` 이 한다.
+  세션 이력이 곧 다음 턴의 시작점이다.
+- 자식에게는 부모로 돌아가는 transfer_to_agent 도구가 붙어 있으므로 필요하면 다시 부모에게 넘길 수 있다.
+  `disallow_transfer_to_parent=True` 를 주면 그 길을 막는다.
 
 ## adk web 에서 확인할 것
 
-- 메시지를 보내면 "시작", 자식 답, "끝" 세 이벤트가 차례로 나온다.
-- Events 탭에서 세 이벤트의 author 가 loop_orchestrator, loop_child, loop_orchestrator 이고 invocationId 가 같다.
+- 첫 메시지를 보내면 Events 탭에 loop_router 의 transfer 와 loop_specialist 의 답이 있다.
+- 둘째 메시지를 보내면 loop_specialist 의 답만 생기고 loop_router 이벤트는 없다.
+- 스크립트는 `turn 1: loop_router, loop_router, loop_specialist` 와 `turn 2: loop_specialist` 를 찍는다.
 
 ## 이전 단계와 다른 점
 
-Announcer 가 자식 LlmAgent 를 품은 Orchestrator 로 바뀌었다. state_delta 는 이 단계의 관심사가 아니라 뺐다.
+커스텀 Orchestrator 가 LlmAgent 부모와 자식으로 바뀌고, main.py 가 한 세션에 두 턴을 보낸다.
