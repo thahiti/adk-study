@@ -1,46 +1,39 @@
 """state_04_sequential: 앞 에이전트의 output_key 를 뒤 에이전트가 읽는다."""
 
-from google.adk.runners import InMemoryRunner
-
-from adk_study.testing import FakeLlm, run_in_session, run_turn, text_reply
-from agents.state_04_sequential.agent import root_agent
+from adk_study.testing import FakeLlm, run_turn, text_reply
+from agents.state_04_sequential.agent import counter, lister, root_agent
 
 
-async def test_final_event_carries_answer_in_state_delta():
-    root_agent.model = FakeLlm(replies=[text_reply("파란색이 좋아요")])
-
-    events = await run_turn(root_agent, "무슨 색이 좋아")
-
-    assert events[-1].actions.state_delta == {"last_answer": "파란색이 좋아요"}
+def arrange() -> tuple[FakeLlm, FakeLlm]:
+    lister.model = FakeLlm(replies=[text_reply("사과, 바나나")])
+    counter.model = FakeLlm(replies=[text_reply("2개")])
+    return lister.model, counter.model
 
 
-async def test_answer_is_stored_in_session_state():
-    root_agent.model = FakeLlm(replies=[text_reply("파란색이 좋아요")])
-    runner = InMemoryRunner(agent=root_agent, app_name="test")
-    session = await runner.session_service.create_session(
-        app_name="test", user_id="user"
-    )
+async def test_sub_agents_run_in_order_in_one_invocation():
+    arrange()
 
-    await run_in_session(runner, session, "무슨 색이 좋아")
+    events = await run_turn(root_agent, "과일 알려 줘")
 
-    stored = await runner.session_service.get_session(
-        app_name="test", user_id="user", session_id=session.id
-    )
-    assert stored.state == {"last_answer": "파란색이 좋아요"}
+    assert [e.author for e in events] == [
+        "state_lister",
+        "state_fruit_counter",
+    ]
+    assert len({e.invocation_id for e in events}) == 1
 
 
-async def test_previous_answer_is_injected_into_instruction():
-    fake = FakeLlm(replies=[text_reply("파란색이 좋아요"), text_reply("네")])
-    root_agent.model = fake
-    runner = InMemoryRunner(agent=root_agent, app_name="test")
-    session = await runner.session_service.create_session(
-        app_name="test", user_id="user"
-    )
+async def test_first_agent_saves_fruits_to_state():
+    arrange()
 
-    await run_in_session(runner, session, "무슨 색이 좋아")
-    await run_in_session(runner, session, "아까 뭐라고 했지")
+    events = await run_turn(root_agent, "과일 알려 줘")
 
-    first = str(fake.requests[0].config.system_instruction)
-    second = str(fake.requests[1].config.system_instruction)
-    assert "파란색이 좋아요" not in first
-    assert "파란색이 좋아요" in second
+    assert events[0].actions.state_delta == {"fruits": "사과, 바나나"}
+
+
+async def test_second_agent_reads_fruits_from_state():
+    _, counter_model = arrange()
+
+    await run_turn(root_agent, "과일 알려 줘")
+
+    system = str(counter_model.requests[0].config.system_instruction)
+    assert "사과, 바나나" in system
