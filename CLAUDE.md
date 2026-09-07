@@ -42,6 +42,7 @@ uv run pytest
 basics, event, state, session, runner, streaming, runtime-loop 순서다.
 토픽 하나가 `feature/<토픽>` 브랜치 하나이고, 선행 토픽이 main에 머지된 뒤 다음 브랜치를 main에서 딴다.
 머지는 rebase 후 `--no-ff`, 머지 커밋 제목은 `merge:`로 시작한다.
+머지가 끝나면 main을 origin(https://github.com/thahiti/adk-study)에 푸시한다.
 
 ## 단계 추가 규칙
 
