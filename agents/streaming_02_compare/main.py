@@ -1,8 +1,8 @@
-"""streaming_02_compare: SSE 모드에서 partial 이벤트를 조각으로 받는다.
+"""streaming_02_compare: NONE 과 SSE 를 같은 메시지로 비교한다.
 
-RunConfig(streaming_mode=StreamingMode.SSE) 를 주면 모델이 내는
-텍스트 조각이 partial=True 이벤트로 하나씩 온다. 마지막에 전체
-텍스트를 담은 partial=False 이벤트가 오고 세션에는 그것만 남는다.
+루프에 나오는 이벤트 수는 모드에 따라 다르지만 세션에 저장되는
+이벤트 수는 같다. 스트리밍은 전달 방식의 차이일 뿐 대화 기록을 바꾸지
+않는다.
 
 실행: uv run python -m agents.streaming_02_compare.main [메시지]
 """
@@ -14,7 +14,7 @@ from google.adk.agents import BaseAgent
 from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.adk.events import Event
 from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
+from google.adk.sessions import BaseSessionService, InMemorySessionService
 from google.genai import types
 
 from .agent import root_agent
@@ -45,14 +45,18 @@ def describe(event: Event) -> str:
 
 
 async def run(
-    agent: BaseAgent, text: str, *, streaming: bool = True
+    agent: BaseAgent,
+    text: str,
+    *,
+    streaming: bool = True,
+    session_service: BaseSessionService | None = None,
 ) -> list[Event]:
     """세션 하나를 만들고 메시지 한 개를 보내 이벤트를 출력하고 모은다.
 
     streaming 이 True 면 SSE 모드라 partial 이벤트가 조각으로 오고,
     False 면 NONE 모드라 최종 이벤트만 온다.
     """
-    session_service = InMemorySessionService()
+    session_service = session_service or InMemorySessionService()
     runner = Runner(
         app_name=APP_NAME, agent=agent, session_service=session_service
     )
@@ -78,6 +82,31 @@ async def run(
             print(describe(event))
         events.append(event)
     return events
+
+
+async def compare(agent: BaseAgent, text: str) -> dict[str, int]:
+    """같은 메시지를 NONE 과 SSE 로 돌려 이벤트 수를 비교한다.
+
+    루프에 나온 이벤트 수는 다르지만 세션에 저장된 이벤트 수는 같다.
+    """
+    counts: dict[str, int] = {}
+    for name, streaming in (("none", False), ("sse", True)):
+        session_service = InMemorySessionService()
+        events = await run(
+            agent, text, streaming=streaming, session_service=session_service
+        )
+        listed = await session_service.list_sessions(
+            app_name=APP_NAME, user_id=USER_ID
+        )
+        session = await session_service.get_session(
+            app_name=APP_NAME,
+            user_id=USER_ID,
+            session_id=listed.sessions[0].id,
+        )
+        stored = len(session.events) if session else 0
+        print(f"{name}: events={len(events)} stored={stored}")
+        counts[name] = len(events)
+    return counts
 
 
 if __name__ == "__main__":

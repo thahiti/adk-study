@@ -2,23 +2,20 @@
 
 ## 이 단계가 보여주는 것
 
-- 스트리밍은 에이전트 설정이 아니라 한 턴의 RunConfig 로 켠다.
-  `RunConfig(streaming_mode=StreamingMode.SSE)` 를 run_async 에 넘긴다.
-- SSE 모드에서는 모델이 텍스트를 만드는 동안 조각마다 `partial=True` 이벤트가 온다.
-  마지막에 조각을 모두 합친 텍스트가 `partial=False` 이벤트로 온다.
-- partial 이벤트는 `is_final_response()` 가 False 이고 Runner 가 세션에 저장하지 않는다.
-  세션에는 최종 이벤트 하나만 남으므로 다음 턴의 모델 입력은 스트리밍 여부와 무관하다.
-- 기본값 `StreamingMode.NONE` 에서는 LlmFlow 가 partial 응답을 걸러 최종 이벤트만 yield 한다.
-  같은 모델이라도 for 루프에 나오는 이벤트 수가 달라진다.
-- 스크립트는 partial 이벤트의 텍스트를 줄바꿈 없이 이어 찍고, 최종 이벤트는 한 줄로 요약한다.
+- 같은 에이전트, 같은 메시지를 NONE 과 SSE 로 한 번씩 돌린다.
+  루프에 나오는 이벤트는 NONE 이 1개, SSE 가 조각 수 더하기 1개다.
+- 세션에 저장된 이벤트 수는 두 모드 모두 2개(사용자 메시지와 최종 응답)다.
+  partial 이벤트는 저장되지 않으므로 스트리밍은 전달 방식의 차이일 뿐 대화 기록을 바꾸지 않는다.
+- 모델 호출 횟수도 같다. SSE 는 한 번의 호출에서 응답이 여러 조각으로 나뉘어 올 뿐이다.
+- 실제 GPT 를 부르면 SSE 의 첫 조각이 NONE 의 최종 응답보다 먼저 도착한다.
+  사용자가 기다리는 시간이 줄어드는 것이 스트리밍의 목적이고, 전체 완료 시각은 비슷하다.
 
 ## adk web 에서 확인할 것
 
-- 스크립트를 실행하면 글자가 조금씩 찍히다가 마지막에 `[stream_tool] text ...` 한 줄이 나온다.
-- adk web 은 오른쪽 위 설정에서 토큰 스트리밍을 켜면 요청에 `streaming: true` 를 실어 같은 SSE 모드로 돈다.
-  Events 탭에는 최종 이벤트만 남는다. partial 이벤트는 세션에 저장되지 않기 때문이다.
+- 스크립트를 실행하면 두 모드의 결과가 차례로 찍히고 마지막에 `none: events=1 stored=2`, `sse: events=N stored=2` 가 나온다.
+- adk web 에서 토큰 스트리밍을 켜고 끄며 같은 질문을 보낸다.
+  화면에 글자가 나타나는 방식은 다르지만 Events 탭의 이벤트 수는 같다.
 
 ## 이전 단계와 다른 점
 
-runner_01_minimal 의 run 에 streaming 인자가 생기고 run_async 에 RunConfig 를 넘긴다.
-partial 이벤트를 구분해 출력하는 분기가 더해졌다.
+streaming_01_sse 의 run 에 session_service 인자가 생기고, 두 모드를 돌려 세는 compare 가 더해졌다.

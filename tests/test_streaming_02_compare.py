@@ -2,7 +2,7 @@
 
 from adk_study.testing import FakeStreamLlm
 from agents.streaming_02_compare.agent import root_agent
-from agents.streaming_02_compare.main import APP_NAME, run
+from agents.streaming_02_compare.main import APP_NAME, compare, run
 
 
 def chunked_answer() -> FakeStreamLlm:
@@ -58,3 +58,25 @@ async def test_all_events_share_one_invocation():
 
 def test_app_name_matches_folder():
     assert APP_NAME == "streaming_02_compare"
+
+
+async def test_compare_counts_events_of_both_modes():
+    root_agent.model = FakeStreamLlm(
+        replies=[["안녕", "하세", "요"], ["안녕", "하세", "요"]]
+    )
+
+    counts = await compare(root_agent, "인사해 줘")
+
+    assert counts == {"none": 1, "sse": 4}
+
+
+async def test_compare_reports_same_stored_count(capsys):
+    root_agent.model = FakeStreamLlm(
+        replies=[["안녕", "하세", "요"], ["안녕", "하세", "요"]]
+    )
+
+    await compare(root_agent, "인사해 줘")
+
+    out = capsys.readouterr().out
+    assert "none: events=1 stored=2" in out
+    assert "sse: events=4 stored=2" in out
