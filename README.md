@@ -24,6 +24,7 @@ uv run adk web agents
 | 순서 | 토픽 | 단계 폴더 |
 |---|---|---|
 | 1 | basics | basics_01_hello, basics_02_tool |
+| 2 | event | event_01_text, event_02_function_call, event_03_transfer, event_04_custom_event |
 
 토픽이 머지될 때마다 이 표에 줄을 더한다.
 
