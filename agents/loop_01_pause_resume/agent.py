@@ -1,10 +1,17 @@
 """loop_01_pause_resume: yield 가 러너로 제어를 넘기고 다시 받는 지점.
 
-BaseAgent 의 run_async 는 @final 이라 덮어쓸 수 없다. run_async 가
-콜백 처리와 InvocationContext 준비를 맡고 _run_async_impl 을 부르므로
-하위 클래스는 _run_async_impl 만 채운다. 기본 구현은 호출될 때
-NotImplementedError 를 내므로, 빠뜨려도 클래스 정의 시점이 아니라
-첫 실행 때 드러난다.
+BaseAgent 를 상속해 _run_async_impl 만 채우는 이유는
+event_04_custom_event 에서 다뤘다. 여기서 볼 것은 그 메서드가
+async generator 라는 사실 하나다.
+
+async generator 는 불러도 몸통이 실행되지 않고 생성자 객체만
+만들어진다. 몸통은 호출자가 __anext__ 를 부를 때(async for 한
+바퀴) 다음 yield 까지만 돈다. yield 는 값을 넘기면서 함수를 그
+줄에서 멈추고 지역 변수와 실행 위치를 그대로 남겨 둔다. 그래서
+yield 앞뒤에 print 를 두면, 러너가 이벤트 하나를 다 처리하고
+다음 것을 요청하기 전까지 뒷줄이 실행되지 않는 것이 눈에 보인다.
+
+이 print 는 학습용이다. 실제 에이전트에 넣을 코드가 아니다.
 """
 
 from collections.abc import AsyncGenerator
@@ -40,8 +47,9 @@ class Announcer(BaseAgent):
             invocation_id=ctx.invocation_id,
             content=_text("첫 번째 알림"),
         )
-        # 러너가 위 이벤트를 세션에 저장하고 호출자에게 넘긴 뒤,
-        # 호출자가 다음 이벤트를 요청해야 이 줄이 실행된다.
+        # 러너가 위 이벤트를 플러그인 콜백에 태우고 세션에 저장한 뒤
+        # 호출자에게 넘기고, 호출자가 다음 이벤트를 요청해야 이 줄이
+        # 실행된다. 그래서 출력에서 이 줄은 runner 쪽 줄 다음이다.
         print("agent: after yield 1")
         print("agent: before yield 2")
         yield Event(
@@ -50,6 +58,9 @@ class Announcer(BaseAgent):
             content=_text("두 번째 알림"),
             actions=EventActions(state_delta={"announced": 2}),
         )
+        # 마지막 yield 뒤에도 몸통이 조금 남아 있다. 이 줄은 호출자가
+        # 한 번 더 요청할 때 실행되고, 그 요청은 새 이벤트 대신
+        # 생성자 종료로 끝나 async for 루프를 빠져나가게 한다.
         print("agent: after yield 2")
 
 
