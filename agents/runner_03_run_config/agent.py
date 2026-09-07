@@ -24,6 +24,6 @@ root_agent = LlmAgent(
     model=make_model(),
     description="글자 수를 세어 주는 에이전트",
     instruction="사용자가 글자 수를 물으면 count_chars 도구를 쓰고 결과를 "
-    "한국어로 알려 준다.",
+    "한국어로 알려 준다. 사용자 이름: {user_name?}",
     tools=[count_chars],
 )

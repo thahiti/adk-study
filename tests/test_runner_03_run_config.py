@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+from google.adk.agents.invocation_context import LlmCallsLimitExceededError
 from google.adk.sessions.sqlite_session_service import SqliteSessionService
 
 from adk_study.testing import FakeLlm, call_reply, text_reply
@@ -84,3 +86,40 @@ async def test_different_session_id_starts_fresh(tmp_path: Path):
         app_name=APP_NAME, user_id="user"
     )
     assert {s.id for s in listed.sessions} == {"s1", "s2"}
+
+
+async def test_max_llm_calls_stops_a_tool_loop(tmp_path: Path):
+    root_agent.model = FakeLlm(
+        replies=[call_reply("count_chars", {"text": "a"})] * 5
+        + [text_reply("끝")]
+    )
+
+    with pytest.raises(LlmCallsLimitExceededError):
+        await run(
+            root_agent,
+            "세 줘",
+            db_path=str(tmp_path / "s.db"),
+            max_llm_calls=3,
+        )
+
+    assert len(root_agent.model.requests) == 3
+
+
+async def test_state_arg_is_visible_to_the_agent(tmp_path: Path):
+    fake = FakeLlm(replies=[text_reply("안녕 철수")])
+    root_agent.model = fake
+
+    events = await run(
+        root_agent,
+        "안녕",
+        db_path=str(tmp_path / "s.db"),
+        state={"user_name": "철수"},
+    )
+
+    assert "철수" in str(fake.requests[0].config.system_instruction)
+    stored = await SqliteSessionService(
+        f"sqlite:///{tmp_path / 's.db'}"
+    ).get_session(app_name=APP_NAME, user_id="user", session_id="runner-demo")
+    assert stored is not None
+    assert stored.events[0].actions.state_delta == {"user_name": "철수"}
+    assert events[-1].actions.state_delta == {}

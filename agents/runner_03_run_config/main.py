@@ -1,16 +1,18 @@
-"""runner_03_run_config: 세션 서비스를 SQLite 로 바꾸고 다른 서비스도 넣는다.
+"""runner_03_run_config: RunConfig 와 state_delta 로 한 턴을 조정한다.
 
-Runner 는 세션, 아티팩트, 메모리 세 서비스를 받는다. 세션 서비스를
-SqliteSessionService 로 바꾸면 스크립트를 다시 실행해도 같은
-session_id 로 대화가 이어진다.
+run_async 는 메시지 외에 두 가지를 더 받는다. run_config 는 이 턴의
+실행 제한이고, state_delta 는 에이전트가 돌기 전에 세션 state 에
+반영할 값이다.
 
 실행: uv run python -m agents.runner_03_run_config.main [메시지]
 """
 
 import asyncio
 import sys
+from typing import Any
 
 from google.adk.agents import BaseAgent
+from google.adk.agents.run_config import RunConfig
 from google.adk.artifacts import InMemoryArtifactService
 from google.adk.events import Event
 from google.adk.memory import InMemoryMemoryService
@@ -43,10 +45,13 @@ async def run(
     *,
     db_path: str = "sessions.db",
     session_id: str = "runner-demo",
+    max_llm_calls: int = 4,
+    state: dict[str, Any] | None = None,
 ) -> list[Event]:
     """SQLite 세션에 메시지 한 개를 보내 이벤트를 출력하고 모은다.
 
-    같은 db_path 와 session_id 로 다시 부르면 이전 대화에 이어진다.
+    max_llm_calls 는 한 턴의 모델 호출 상한이다. state 는 에이전트가
+    돌기 전에 세션 state 에 반영할 값이다.
     """
     session_service = SqliteSessionService(f"sqlite:///{db_path}")
     runner = Runner(
@@ -68,7 +73,11 @@ async def run(
     )
     events: list[Event] = []
     async for event in runner.run_async(
-        user_id=USER_ID, session_id=session.id, new_message=message
+        user_id=USER_ID,
+        session_id=session.id,
+        new_message=message,
+        state_delta=state,
+        run_config=RunConfig(max_llm_calls=max_llm_calls),
     ):
         print(describe(event))
         events.append(event)
