@@ -4,6 +4,10 @@ RunConfig(streaming_mode=StreamingMode.SSE) 를 주면 모델이 내는
 텍스트 조각이 partial=True 이벤트로 하나씩 온다. 마지막에 전체
 텍스트를 담은 partial=False 이벤트가 오고 세션에는 그것만 남는다.
 
+SSE 는 Server-Sent Events 의 약자다. adk web 서버가 이벤트를 브라우저로
+흘려보낼 때 쓰는 HTTP 방식에서 이름을 따 왔을 뿐, 스크립트에서는
+HTTP 없이 run_async 가 partial 이벤트를 yield 하는 모드를 뜻한다.
+
 실행: uv run python -m agents.streaming_01_sse.main [메시지]
 """
 
@@ -62,6 +66,10 @@ async def run(
     message = types.Content(
         role="user", parts=[types.Part.from_text(text=text)]
     )
+    # 스트리밍은 에이전트나 Runner 의 속성이 아니라 run_async 호출 한
+    # 번에 붙는 RunConfig 로 정한다. 같은 Runner 로 턴마다 다르게 줄 수
+    # 있다. LlmFlow 는 이 값이 SSE 일 때만 모델의
+    # generate_content_async 에 stream=True 를 넘긴다.
     mode = StreamingMode.SSE if streaming else StreamingMode.NONE
     events: list[Event] = []
     async for event in runner.run_async(
@@ -70,10 +78,18 @@ async def run(
         new_message=message,
         run_config=RunConfig(streaming_mode=mode),
     ):
+        # partial 은 Optional[bool] 이라 NONE 모드에서는 None 일 수도
+        # 있다. 참인지로만 가르면 None 과 False 를 같이 최종으로 본다.
         if event.partial:
+            # 조각 이벤트는 그 조각의 텍스트만 담으므로 줄바꿈 없이
+            # 이어 찍어야 한 문장이 된다. 개행이 없으면 stdout 버퍼가
+            # 비워지지 않아 최종 이벤트까지 화면에 아무것도 안 보이므로
+            # flush 로 조각마다 바로 내보낸다.
             parts = event.content.parts if event.content else None
             print(parts[0].text if parts else "", end="", flush=True)
         else:
+            # 조각 줄은 개행 없이 끝나 있어서 요약을 새 줄에 찍는다.
+            # NONE 모드나 조각 없이 오는 이벤트 앞에는 빈 줄이 하나 생긴다.
             print()
             print(describe(event))
         events.append(event)
