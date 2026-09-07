@@ -22,7 +22,8 @@
 - 이어지는 이벤트의 author 가 event_counter 로 바뀐다.
 - 다음 메시지를 보내면 이제 event_counter 가 먼저 응답한다.
   Runner 가 턴을 시작할 때 세션의 마지막 에이전트 이벤트를 보고 실행할 에이전트를 고르기 때문이다.
-  자식에게도 부모로 돌아가는 transfer_to_agent 도구가 붙어 있어 필요하면 부모에게 되돌릴 수 있다.
+  부모가 LlmAgent 이고 disallow_transfer_to_parent 를 켜지 않았으므로 자식에게도 부모로 돌아가는 transfer_to_agent 도구가 붙는다.
+  필요하면 부모에게 되돌릴 수 있다.
   이 동작은 runtime-loop 토픽에서 다룬다.
 
 ## 이전 단계와 다른 점
