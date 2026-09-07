@@ -1,4 +1,10 @@
-"""session_02_sqlite: 코드는 같고 세션 서비스만 SQLite 로 바꾼다."""
+"""session_02_sqlite: 코드는 같고 세션 서비스만 SQLite 로 바꾼다.
+
+session_01_inmemory 와 비교해 에이전트 이름만 다르다.
+세션을 메모리에 둘지 파일에 남길지는 에이전트가 아니라
+Runner 에 넣는 SessionService 가 정하므로 이 파일은 손댈 곳이 없다.
+도구도 tool_context.session 만 읽을 뿐 저장소가 무엇인지 모른다.
+"""
 
 from google.adk.agents import LlmAgent
 from google.adk.tools import ToolContext
