@@ -1,10 +1,13 @@
 """FakeLlm 과 run_turn 이 실제 Runner 흐름을 재현하는지 확인한다."""
 
 from google.adk.agents import LlmAgent
+from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.adk.runners import InMemoryRunner
+from google.genai import types
 
 from adk_study.testing import (
     FakeLlm,
+    FakeStreamLlm,
     call_reply,
     run_in_session,
     run_turn,
@@ -59,3 +62,40 @@ async def test_run_in_session_keeps_history_across_turns():
     )
     assert [e.author for e in stored.events] == ["user", "t", "user", "t"]
     assert len(fake.requests[1].contents) == 3
+
+
+async def test_fake_stream_llm_yields_chunks_only_in_sse_mode():
+    fake = FakeStreamLlm(replies=[["안녕", "하세요"]])
+    agent = LlmAgent(name="t", model=fake, instruction="")
+    runner = InMemoryRunner(agent=agent, app_name="test")
+    session = await runner.session_service.create_session(
+        app_name="test", user_id="user"
+    )
+    message = types.Content(
+        role="user", parts=[types.Part.from_text(text="hi")]
+    )
+
+    events = [
+        e
+        async for e in runner.run_async(
+            user_id="user",
+            session_id=session.id,
+            new_message=message,
+            run_config=RunConfig(streaming_mode=StreamingMode.SSE),
+        )
+    ]
+
+    assert [(e.content.parts[0].text, e.partial) for e in events] == [
+        ("안녕", True),
+        ("하세요", True),
+        ("안녕하세요", False),
+    ]
+
+
+async def test_fake_stream_llm_answers_whole_in_none_mode():
+    fake = FakeStreamLlm(replies=[["안녕", "하세요"]])
+    agent = LlmAgent(name="t", model=fake, instruction="")
+
+    events = await run_turn(agent, "hi")
+
+    assert [e.content.parts[0].text for e in events] == ["안녕하세요"]
