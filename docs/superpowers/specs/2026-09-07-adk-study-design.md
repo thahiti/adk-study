@@ -21,6 +21,8 @@ Google ADK(Agent Development Kit) 1.36.x의 핵심 개념을 토픽 하나씩 �
 - 1.36.2에는 `google.adk.labs.openai`가 없다.
   OpenAI 모델은 `LiteLlm(model="openai/<모델명>")`으로만 쓸 수 있고 litellm은 `google-adk[extensions]` 엑스트라로 설치된다.
 - 세션 서비스로 `InMemorySessionService`, `SqliteSessionService`, `DatabaseSessionService`가 있고 `adk web --session_service_uri sqlite:///<파일>`을 지원한다.
+  옵션 없이 켜면 InMemory가 아니라 `agents/<단계>/.adk/session.db`에 에이전트별 SQLite를 만든다.
+  InMemory 동작을 보려면 `--session_service_uri memory://`를 준다.
 - `google.adk.plugins.BasePlugin`이 있고 before_run, on_event, after_run, before_agent, before_model, before_tool 계열 콜백을 제공한다.
 - `RunConfig.streaming_mode`에 `StreamingMode.NONE`과 `StreamingMode.SSE`가 있고 SSE에서는 `Event.partial`이 True인 부분 이벤트가 온다.
 - adk.dev 문서는 2.x 기준이다.
@@ -120,7 +122,7 @@ google-adk/
 - session_01_inmemory: Session 구조(app_name, user_id, id, state, events), adk web에서 세션 여러 개 만들기
 - session_02_sqlite: `--session_service_uri sqlite:///sessions.db`로 재시작 후에도 이력 유지
 - session_03_include_contents: include_contents로 이력이 LLM 입력으로 들어가는 방식 비교
-- session_04_compaction(선택): App의 events_compaction_config로 이력 압축
+- session_04_compaction: App의 events_compaction_config로 이력 압축
 
 ### runner
 
@@ -136,7 +138,7 @@ google-adk/
 
 ### runtime-loop
 
-- loop_01_custom_agent: `_run_async_impl`에서 이벤트 3개를 yield하며 러너 쪽 출력과 에이전트 쪽 로그를 섞어 찍어 일시정지와 재개 시점 확인
+- loop_01_pause_resume: `_run_async_impl`의 yield 앞뒤 출력과 러너 쪽 출력이 번갈아 나오는 것으로 일시정지와 재개 시점 확인
 - loop_02_state_commit: state_delta를 담은 이벤트를 yield한 뒤 ctx.session.state에서 커밋된 값을 읽기
 - loop_03_delegation: 커스텀 오케스트레이터가 sub_agent.run_async(ctx)를 돌려 이벤트를 다시 yield, author와 branch
 - loop_04_transfer_next_turn: transfer 이후 다음 턴에서 러너가 마지막 이벤트를 보고 실행할 에이전트를 고르는 방식
